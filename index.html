@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="bn"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FF TANGAIL - Tournament</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+</head><body class="bg-[#0f0f1a] text-white min-h-screen">
+<div class="max-w-md mx-auto p-4">
+<div class="text-center py-6"><h1 class="text-4xl font-black text-yellow-400">FF TANGAIL 🔥</h1><p class="text-gray-400">Tangail's Biggest FF Tournament</p></div>
+<div id="authBox" class="bg-white/10 p-5 rounded-2xl">
+<h2 class="font-bold text-xl mb-3">নাম্বার দিয়ে Login / Register</h2>
+<input id="phone" placeholder="017XXXXXXXXX" class="w-full p-3 rounded-xl bg-black/50 mb-2 outline-none" type="tel">
+<input id="pass" placeholder="Password (6+ digit)" class="w-full p-3 rounded-xl bg-black/50 mb-2 outline-none" type="password">
+<input id="name" placeholder="FF Name / IGN (Register এর সময়)" class="w-full p-3 rounded-xl bg-black/50 mb-3 outline-none">
+<button onclick="login()" class="w-full bg-yellow-400 text-black font-bold p-3 rounded-xl">LOGIN</button>
+<button onclick="register()" class="w-full bg-white text-black font-bold p-3 rounded-xl mt-2">NEW ACCOUNT খুলো</button>
+<p id="msg" class="text-center text-sm mt-2 text-red-300"></p>
+</div>
+<div id="homeBox" class="hidden">
+<div class="bg-yellow-400 text-black p-4 rounded-2xl flex justify-between items-center"><div><p class="text-xs">আপনার নাম</p><b id="uName">-</b><p class="text-xs" id="uPhone"></p></div><button onclick="logout()" class="bg-black text-white px-3 py-1 rounded-lg text-sm">Logout</button></div>
+<h2 class="font-bold text-xl mt-6 mb-3">🔥 Live Tournaments</h2>
+<div id="tourList"></div>
+<div class="bg-white/10 p-4 rounded-2xl mt-4"><h3 class="font-bold">💰 Payment - bKash / Nagad</h3><p class="text-sm text-gray-300 mt-1">Send Money: <b class="text-yellow-400">017XXXXXXXXX</b> (Personal)<br>টাকা পাঠিয়ে TrxID দিয়ে জয়েন করো</p></div>
+</div></div>
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD2Vi1XrvZNq7gSJe4Lu2iYyMoWRqwABXg",
+  authDomain: "ff-tangail.firebaseapp.com",
+  projectId: "ff-tangail",
+  storageBucket: "ff-tangail.firebasestorage.app",
+  messagingSenderId: "276621904761",
+  appId: "1:276621904761:web:a83ab02c40dd3674843da8",
+  measurementId: "G-J5FJ2W7TPK"
+};
+firebase.initializeApp(firebaseConfig);
+const auth=firebase.auth(), db=firebase.firestore();
+function phoneToEmail(p){ p=p.trim(); if(p.startsWith('+88')) p=p.slice(3); if(p.startsWith('88')&&p.length==13) p=p.slice(2); return p+'@ff-tangail.com'; }
+async function register(){
+  let ph=document.getElementById('phone').value, pw=document.getElementById('pass').value, nm=document.getElementById('name').value;
+  if(ph.length<11||pw.length<6||!nm) return document.getElementById('msg').innerText='সব ঘর পূরণ করো! নাম্বার 11 ডিজিট, পাস 6+';
+  try{ let c=await auth.createUserWithEmailAndPassword(phoneToEmail(ph),pw);
+    await db.collection('users').doc(c.user.uid).set({phone:ph, name:nm, balance:0, created:Date.now()});
+    document.getElementById('msg').innerText='Account হইছে! এখন Login দাও';
+  }catch(e){ document.getElementById('msg').innerText=e.message; }
+}
+async function login(){
+  let ph=document.getElementById('phone').value, pw=document.getElementById('pass').value;
+  try{ await auth.signInWithEmailAndPassword(phoneToEmail(ph),pw); }catch(e){ document.getElementById('msg').innerText='নাম্বার / পাসওয়ার্ড ভুল!'; }
+}
+function logout(){ auth.signOut(); }
+auth.onAuthStateChanged(async u=>{
+  if(u){ document.getElementById('authBox').classList.add('hidden'); document.getElementById('homeBox').classList.remove('hidden');
+    let d=await db.collection('users').doc(u.uid).get(); let data=d.data()||{};
+    document.getElementById('uName').innerText=data.name||'Player'; document.getElementById('uPhone').innerText=data.phone||'';
+  } else { document.getElementById('authBox').classList.remove('hidden'); document.getElementById('homeBox').classList.add('hidden'); }
+  loadTours();
+});
+async function loadTours(){
+  let snap=await db.collection('tournaments').get();
+  let html='';
+  if(snap.empty){ html='<div class="bg-white/10 p-4 rounded-2xl">এখনো কোনো টুর্নামেন্ট নাই। এডমিন শীঘ্রই দিবে।</div>';
+    html+='<div class="bg-white/10 p-4 rounded-2xl mt-3 border border-yellow-400"><b>🔥 Demo - Full Map Custom</b><p class="text-sm text-gray-300">Entry: 50৳ | Prize: 500৳ | Time: রাত 9টা</p><button onclick="alert(\'Login করে TrxID দিয়ে জয়েন করতে হবে\')" class="bg-yellow-400 text-black font-bold px-4 py-2 rounded-lg mt-2 w-full">JOIN NOW</button></div>';
+  }
+  snap.forEach(doc=>{ let t=doc.data(); html+=`<div class="bg-white/10 p-4 rounded-2xl mt-3"><b>${t.title||'Tournament'}</b><p class="text-sm text-gray-300">Entry: ${t.entry||0}৳ | Prize: ${t.prize||0}৳ | ${t.time||''}</p><button onclick="joinTour('${doc.id}')" class="bg-yellow-400 text-black font-bold px-4 py-2 rounded-lg mt-2 w-full">JOIN NOW</button></div>`; });
+  document.getElementById('tourList').innerHTML=html;
+}
+async function joinTour(id){
+  let trx=prompt('bKash TrxID দাও:'); if(!trx) return;
+  let u=auth.currentUser; if(!u) return alert('আগে Login করো');
+  await db.collection('payments').add({uid:u.uid, tourId:id, trx:trx, status:'pending', time:Date.now()});
+  alert('Request পাঠানো হইছে! এডমিন Approve করলে জয়েন হয়ে যাবা।');
+}
+</script></body></html>
